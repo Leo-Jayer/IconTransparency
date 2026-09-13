@@ -96,13 +96,32 @@ static const double kDefaultAlpha = 0.3;
 
 - (void)enumerateIconViews:(void (^)(UIView *view))block {
     if (!block) return;
+
     UIWindow *keyWindow = nil;
-    for (UIWindow *window in [UIApplication sharedApplication].windows) {
-        if (window.isKeyWindow) {
-            keyWindow = window;
-            break;
+    if (@available(iOS 15.0, *)) {
+        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+            UIWindowScene *windowScene = (UIWindowScene *)scene;
+            for (UIWindow *window in windowScene.windows) {
+                if (window.isKeyWindow) {
+                    keyWindow = window;
+                    break;
+                }
+            }
+            if (keyWindow) break;
+        }
+    } else {
+        for (UIWindow *window in [UIApplication sharedApplication].windows) {
+            if (window.isKeyWindow) {
+                keyWindow = window;
+                break;
+            }
         }
     }
+
+    if (!keyWindow) return;
+    ...
+}
     if (!keyWindow) return;
 
     Class iconViewClass   = NSClassFromString(@"SBIconView");
