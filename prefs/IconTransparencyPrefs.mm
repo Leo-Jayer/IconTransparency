@@ -59,9 +59,8 @@
                                                                    detail:nil
                                                                      cell:PSButtonCell
                                                                      edit:nil];
-        [respringBtn setProperty:@selector(respring) forKey:@"action"];
+        [respringBtn setProperty:@"respring" forKey:@"action"];
         [respringBtn setProperty:@YES forKey:@"enabled"];
-        [respringBtn setProperty:[UIColor systemRedColor] forKey:@"tintColor"];
         [specs addObject:respringBtn];
 
         _specifiers = specs;
@@ -98,20 +97,19 @@
 }
 
 - (void)respring {
+    // 方式 1：通过 SBUIController 注销
     Class sbuic = NSClassFromString(@"SBUIController");
     if (sbuic) {
+        #pragma clang diagnostic push
+        #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
         id controller = [sbuic performSelector:NSSelectorFromString(@"sharedInstance")];
-        if ([controller respondsToSelector:NSSelectorFromString(@"rebootApplication:withReason:")]) {
-            #pragma clang diagnostic push
-            #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+        if (controller && [controller respondsToSelector:NSSelectorFromString(@"rebootApplication:withReason:")]) {
             [controller performSelector:NSSelectorFromString(@"rebootApplication:withReason:")
                              withObject:nil
                              withObject:@"IconTransparency respring"];
-            #pragma clang diagnostic pop
-            return;
         }
+        #pragma clang diagnostic pop
     }
-    system("killall -9 SpringBoard");
 }
 
 @end
