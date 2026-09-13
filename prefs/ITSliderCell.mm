@@ -23,6 +23,9 @@
         self.minValue = [[specifier propertyForKey:@"min"] doubleValue];
         self.maxValue = [[specifier propertyForKey:@"max"] doubleValue];
 
+        // 隐藏父类自带的 titleLabel，避免重复显示
+        self.titleLabel.hidden = YES;
+
         // 标题
         self.customTitleLabel = [[UILabel alloc] init];
         self.customTitleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightRegular];
