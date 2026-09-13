@@ -2,10 +2,9 @@
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 
-static NSString *const kDelayKey  = @"transparencyDelay";
-static NSString *const kAlphaKey  = @"iconTransparency";
+static NSString *const kPrefsPath = @"/var/mobile/Library/Preferences/com.yourname.icontransparency.plist";
 static const double kDefaultDelay = 3.0;
-static const double kDefaultAlpha = 0.3;
+static const double kDefaultAlpha = 0.9;
 
 @interface IconTransparencyManager : NSObject
 @property (nonatomic, assign) BOOL isTransparent;
@@ -38,20 +37,29 @@ static const double kDefaultAlpha = 0.3;
     return self;
 }
 
+- (NSDictionary *)loadPrefsDict {
+    NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:kPrefsPath];
+    return dict ?: @{};
+}
+
 - (double)configuredDelay {
-    NSNumber *value = [[NSUserDefaults standardUserDefaults] objectForKey:kDelayKey];
+    NSDictionary *dict = [self loadPrefsDict];
+    NSNumber *value = dict[@"transparencyDelay"];
     if (!value) return kDefaultDelay;
     double d = [value doubleValue];
-    return d > 0 ? d : kDefaultDelay;
+    if (d < 1.0) d = 1.0;
+    if (d > 10.0) d = 10.0;
+    return d;
 }
 
 - (double)configuredAlpha {
-    NSNumber *value = [[NSUserDefaults standardUserDefaults] objectForKey:kAlphaKey];
+    NSDictionary *dict = [self loadPrefsDict];
+    NSNumber *value = dict[@"iconTransparency"];
     if (!value) return kDefaultAlpha;
     double a = [value doubleValue];
     if (a < 0.0) a = 0.0;
     if (a > 1.0) a = 1.0;
-    return a;
+    return 1.0 - a;
 }
 
 - (void)start {
@@ -128,7 +136,10 @@ static const double kDefaultAlpha = 0.3;
 
 @end
 
-// ============ 用触摸事件记录交互 ============
+static void prefsChangedCallback(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
+    [[IconTransparencyManager sharedInstance] recordTouch];
+}
+
 %hook SBIconView
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     %orig;
@@ -159,7 +170,6 @@ static const double kDefaultAlpha = 0.3;
 }
 %end
 
-// ============ 启动 ============
 %hook SpringBoard
 - (void)applicationDidFinishLaunching:(id)application {
     %orig;
@@ -168,3 +178,14 @@ static const double kDefaultAlpha = 0.3;
     });
 }
 %end
+
+%ctor {
+    CFNotificationCenterAddObserver(
+        CFNotificationCenterGetDarwinNotifyCenter(),
+        NULL,
+        prefsChangedCallback,
+        CFSTR("com.yourname.icontransparency/prefsChanged"),
+        NULL,
+        CFNotificationSuspensionBehaviorDeliverImmediately
+    );
+}
