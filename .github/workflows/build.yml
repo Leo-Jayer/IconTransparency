@@ -36,21 +36,22 @@ jobs:
             '' \
             'include $(THEOS_MAKE_PATH)/package/deb.mk' \
             > $THEOS/makefiles/package/roothide.mk
+
           cp -f $THEOS/vendor/mod/roothide/instance/rules.mk $THEOS/makefiles/instance/rules.mk
           cp -f $THEOS/vendor/mod/roothide/instance/library.mk $THEOS/makefiles/instance/library.mk
           cp -f $THEOS/vendor/mod/roothide/instance/framework.mk $THEOS/makefiles/instance/framework.mk
 
-      - name: Debug rules.mk line 3
+      - name: Debug instance files
         run: |
           export THEOS=$HOME/theos
-          echo "=== makefiles/instance/rules.mk 前 15 行 ==="
-          head -15 $THEOS/makefiles/instance/rules.mk
+          echo "=== makefiles/instance/ ==="
+          ls -la $THEOS/makefiles/instance/
           echo ""
-          echo "=== vendor/mod/roothide/instance/rules.mk 前 15 行 ==="
-          head -15 $THEOS/vendor/mod/roothide/instance/rules.mk
+          echo "=== vendor/mod/roothide/instance/ ==="
+          ls -la $THEOS/vendor/mod/roothide/instance/
           echo ""
-          echo "=== 项目 Makefile ==="
-          cat $GITHUB_WORKSPACE/Makefile
+          echo "=== tweak.mk 前 20 行 ==="
+          head -20 $THEOS/makefiles/instance/tweak.mk 2>/dev/null || echo "tweak.mk not found"
 
       - name: Download iOS 16.2 SDK
         run: |
