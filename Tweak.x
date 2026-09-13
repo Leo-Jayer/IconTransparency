@@ -7,15 +7,17 @@ static NSString *const kAlphaKey  = @"iconTransparency";
 static const double kDefaultDelay = 3.0;
 static const double kDefaultAlpha = 0.3;
 
+@interface SBIconController : NSObject
++ (instancetype)sharedInstance;
+@end
+
 @interface IconTransparencyManager : NSObject
 @property (nonatomic, assign) BOOL isTransparent;
 @property (nonatomic, strong) NSTimer *idleTimer;
-@property (nonatomic, assign) NSTimeInterval lastInteractTime;
 + (instancetype)sharedInstance;
 - (void)userDidInteract;
 - (void)applyTransparency;
 - (void)restoreOpaque;
-- (void)restartTimer;
 @end
 
 @implementation IconTransparencyManager
@@ -33,7 +35,6 @@ static const double kDefaultAlpha = 0.3;
     self = [super init];
     if (self) {
         _isTransparent = NO;
-        _lastInteractTime = 0;
     }
     return self;
 }
@@ -54,21 +55,8 @@ static const double kDefaultAlpha = 0.3;
     return a;
 }
 
-// 用户操作：恢复不透明 + 重置计时器
-// 加 0.1 秒防抖，避免 scrollViewDidScroll 被自身触发导致死循环
 - (void)userDidInteract {
-    NSTimeInterval now = [NSDate date].timeIntervalSince1970;
-    if (now - self.lastInteractTime < 0.1) {
-        return;
-    }
-    self.lastInteractTime = now;
-
     [self restoreOpaque];
-    [self restartTimer];
-}
-
-// 只重置计时器，不动 alpha
-- (void)restartTimer {
     [self.idleTimer invalidate];
     double delay = [self configuredDelay];
     self.idleTimer = [NSTimer scheduledTimerWithTimeInterval:delay
@@ -84,6 +72,7 @@ static const double kDefaultAlpha = 0.3;
     Class iconClass = objc_getClass("SBIconView");
     if (!iconClass) return;
 
+    // 从 SBIconController 拿到所有 window，遍历全部
     [self traverseAllWindows:iconClass alpha:alpha];
     self.isTransparent = YES;
 }
@@ -97,8 +86,8 @@ static const double kDefaultAlpha = 0.3;
     self.isTransparent = NO;
 }
 
-// 遍历所有 window（包括隐藏的、非 key 的），确保覆盖 Dock
 - (void)traverseAllWindows:(Class)iconClass alpha:(double)alpha {
+    // 方法 1：遍历 connectedScenes 的所有 window
     for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
         if (![scene isKindOfClass:[UIWindowScene class]]) continue;
         UIWindowScene *ws = (UIWindowScene *)scene;
@@ -120,11 +109,30 @@ static const double kDefaultAlpha = 0.3;
 
 @end
 
-// ============ Hook SBIconScrollView 检测滚动 ============
-%hook SBIconScrollView
-- (void)scrollViewDidScroll:(UIScrollView *)scrollView {
+// ============ 用触摸事件结束来触发交互 ============
+// SBIconView 的 touchesEnded 最可靠，但之前 hook 会崩
+// 改成 hook SBIconController 的 iconTapped
+@interface SBIconController (Hook)
+@end
+
+%hook SBIconController
+- (void)iconTapped:(id)arg1 {
     %orig;
     [[IconTransparencyManager sharedInstance] userDidInteract];
+}
+%end
+
+// 用 scrollView 的 decelerate 结束检测
+%hook SBIconScrollView
+- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
+    %orig;
+    [[IconTransparencyManager sharedInstance] userDidInteract];
+}
+- (void)scrollViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate {
+    %orig;
+    if (!decelerate) {
+        [[IconTransparencyManager sharedInstance] userDidInteract];
+    }
 }
 %end
 
