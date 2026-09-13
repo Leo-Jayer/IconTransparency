@@ -40,12 +40,13 @@
                                                                set:@selector(setPreferenceValue:specifier:)
                                                                get:@selector(readPreferenceValue:)
                                                             detail:nil
-                                                              cell:NSClassFromString(@"ITSliderCell")
+                                                              cell:PSSliderCell
                                                               edit:nil];
         [alpha setProperty:@"iconTransparency" forKey:@"key"];
         [alpha setProperty:@0.0 forKey:@"min"];
         [alpha setProperty:@1.0 forKey:@"max"];
         [alpha setProperty:@0.9 forKey:@"default"];
+        [alpha setProperty:NSClassFromString(@"ITSliderCell") forKey:@"cellClass"];
         [specs addObject:alpha];
 
         // 静止时间滑块：用自定义 cell
@@ -54,12 +55,13 @@
                                                                set:@selector(setPreferenceValue:specifier:)
                                                                get:@selector(readPreferenceValue:)
                                                             detail:nil
-                                                              cell:NSClassFromString(@"ITSliderCell")
+                                                              cell:PSSliderCell
                                                               edit:nil];
         [delay setProperty:@"transparencyDelay" forKey:@"key"];
         [delay setProperty:@1 forKey:@"min"];
         [delay setProperty:@10 forKey:@"max"];
         [delay setProperty:@3 forKey:@"default"];
+        [delay setProperty:NSClassFromString(@"ITSliderCell") forKey:@"cellClass"];
         [specs addObject:delay];
 
         _specifiers = specs;
