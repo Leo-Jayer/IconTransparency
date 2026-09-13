@@ -2,6 +2,16 @@
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
 
+// 手动声明这些类，让编译器知道它们的继承关系
+@interface SBIconView : UIView
+@end
+
+@interface SBIconScrollView : UIScrollView
+@end
+
+@interface SpringBoard : UIApplication
+@end
+
 static NSString *const kPrefsPath = @"/var/mobile/Library/Preferences/com.yourname.icontransparency.plist";
 static const double kDefaultDelay = 3.0;
 static const double kDefaultAlpha = 0.9;
