@@ -1,0 +1,10 @@
+{
+    entry = {
+        bundle = "IconTransparencyPrefs";
+        cell = PSLinkCell;
+        detail = "IconTransparencyPrefsListController";
+        icon = "/System/Library/PreferenceBundles/AccessibilitySettings.bundle/Accessibility@2x.png";
+        isController = 1;
+        label = "IconTransparency";
+    };
+}
