@@ -1,20 +1,18 @@
 ifeq ($(THEOS_PACKAGE_SCHEME),roothide)
     TARGET = iphone:clang:16.2:15.0
     ARCHS = arm64e
-    PACKAGE_FORMAT = roothide
+    THEOS_PACKAGE_INSTALL_PREFIX = /var/jb
 else
     TARGET = iphone:clang:16.2:15.0
-    ARCHS = arm64e arm64
+    ARCHS = arm64e
 endif
 
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = IconTransparency
 IconTransparency_FILES = Tweak.x
-IconTransparency_CFLAGS = -fobjc-arc -Wno-deprecated-declarations
+IconTransparency_CFLAGS = -fobjc-arc -fmodules -Wno-deprecated-declarations
+IconTransparency_LDFLAGS = -lroothide
 IconTransparency_FRAMEWORKS = UIKit
 
 include $(THEOS_MAKE_PATH)/tweak.mk
-
-SUBPROJECTS += prefs
-include $(THEOS_MAKE_PATH)/aggregate.mk
