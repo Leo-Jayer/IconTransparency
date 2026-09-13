@@ -1,163 +1,144 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
-#import <objc/runtime.h>
 
-// 偏好设置路径 (rootless，与你设置面板写入路径保持一致)
-#define PREFS_PATH @"/var/mobile/Library/Preferences/com.yourname.icontransparency.plist"
+static NSString *const kDelayKey  = @"transparencyDelay";
+static NSString *const kAlphaKey  = @"iconTransparency";
+static const double kDefaultDelay = 3.0;
+static const double kDefaultAlpha = 0.3;
 
-// 默认配置
-static CGFloat gDelaySeconds = 3.0;
-static CGFloat gTargetAlpha = 0.2;
-static BOOL gEnabled = YES;
-
-// 读取偏好设置
-static void loadPreferences() {
-    NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:PREFS_PATH];
-    if (prefs) {
-        gEnabled      = prefs[@"enabled"] ? [prefs[@"enabled"] boolValue] : YES;
-        gDelaySeconds = prefs[@"delay"]   ? [prefs[@"delay"]   floatValue] : 3.0;
-        gTargetAlpha  = prefs[@"alpha"]   ? [prefs[@"alpha"]   floatValue] : 0.2;
-    }
-    if (gDelaySeconds < 0.5) gDelaySeconds = 0.5;
-    if (gDelaySeconds > 60)  gDelaySeconds = 60;
-    if (gTargetAlpha < 0.0)  gTargetAlpha = 0.0;
-    if (gTargetAlpha > 1.0)  gTargetAlpha = 1.0;
-}
-
-static void prefsChanged(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
-    loadPreferences();
-}
-
-// 关联对象 key
-static const void *kFadeTimerKey = &kFadeTimerKey;
-
-@interface SBIconView : UIView
+@interface IconTransparencyManager : NSObject
+@property (nonatomic, assign) BOOL isTransparent;
+@property (nonatomic, assign) NSTimeInterval lastInteractionTime;
+@property (nonatomic, strong) NSTimer *globalTimer;
++ (instancetype)sharedInstance;
+- (void)userDidInteract;
+- (void)applyTransparency;
+- (void)restoreOpaque;
 @end
 
-%hook SBIconView
+@implementation IconTransparencyManager
 
-// 图标出现在窗口时启动定时器
-- (void)didMoveToWindow {
-    %orig;
-    if (!gEnabled) return;
++ (instancetype)sharedInstance {
+    static IconTransparencyManager *instance = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        instance = [[IconTransparencyManager alloc] init];
+    });
+    return instance;
+}
 
-    // 取消旧定时器
-    NSTimer *oldTimer = objc_getAssociatedObject(self, kFadeTimerKey);
-    if (oldTimer) {
-        [oldTimer invalidate];
-        objc_setAssociatedObject(self, kFadeTimerKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        _isTransparent = NO;
+        _lastInteractionTime = 0;
     }
-
-    // 先恢复不透明
-    self.alpha = 1.0;
-
-    // 启动新定时器
-    __weak SBIconView *weakSelf = self;
-    NSTimer *timer = [NSTimer scheduledTimerWithTimeInterval:gDelaySeconds
-                                                     repeats:NO
-                                                       block:^(NSTimer *t) {
-        __strong SBIconView *strongSelf = weakSelf;
-        if (!strongSelf || !gEnabled) return;
-        [UIView animateWithDuration:0.8
-                              delay:0
-                            options:UIViewAnimationOptionCurveEaseInOut | UIViewAnimationOptionAllowUserInteraction
-                         animations:^{
-            strongSelf.alpha = gTargetAlpha;
-        } completion:nil];
-    }];
-    objc_setAssociatedObject(self, kFadeTimerKey, timer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    return self;
 }
 
-// 触摸图标：恢复不透明，取消定时器
-- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    %orig;
-    if (!gEnabled) return;
+- (double)configuredDelay {
+    NSNumber *value = [[NSUserDefaults standardUserDefaults] objectForKey:kDelayKey];
+    if (!value) return kDefaultDelay;
+    double d = [value doubleValue];
+    return d > 0 ? d : kDefaultDelay;
+}
 
-    NSTimer *oldTimer = objc_getAssociatedObject(self, kFadeTimerKey);
-    if (oldTimer) {
-        [oldTimer invalidate];
-        objc_setAssociatedObject(self, kFadeTimerKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+- (double)configuredAlpha {
+    NSNumber *value = [[NSUserDefaults standardUserDefaults] objectForKey:kAlphaKey];
+    if (!value) return kDefaultAlpha;
+    double a = [value doubleValue];
+    if (a < 0.0) a = 0.0;
+    if (a > 1.0) a = 1.0;
+    return a;
+}
+
+// 用户操作时调用：恢复不透明，更新交互时间，重启全局定时器
+- (void)userDidInteract {
+    self.lastInteractionTime = [NSDate date].timeIntervalSince1970;
+    [self restoreOpaque];
+
+    [self.globalTimer invalidate];
+    double delay = [self configuredDelay];
+    self.globalTimer = [NSTimer scheduledTimerWithTimeInterval:delay
+                                                         target:self
+                                                       selector:@selector(onTimerFire)
+                                                       userInfo:nil
+                                                        repeats:NO];
+}
+
+- (void)onTimerFire {
+    // 检查是否真的静止了足够久
+    NSTimeInterval now = [NSDate date].timeIntervalSince1970;
+    double delay = [self configuredDelay];
+    if (now - self.lastInteractionTime < delay - 0.5) {
+        // 还没到时间，重新排一个短定时器
+        [self.globalTimer invalidate];
+        self.globalTimer = [NSTimer scheduledTimerWithTimeInterval:0.5
+                                                             target:self
+                                                           selector:@selector(onTimerFire)
+                                                           userInfo:nil
+                                                            repeats:NO];
+        return;
     }
-
-    [UIView animateWithDuration:0.3
-                          delay:0
-                        options:UIViewAnimationOptionCurveEaseInOut | UIViewAnimationOptionAllowUserInteraction
-                     animations:^{
-        self.alpha = 1.0;
-    } completion:nil];
+    [self applyTransparency];
 }
 
-// 触摸结束/取消：重新开始计时
-- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    %orig;
-    if (!gEnabled) return;
-    [self didMoveToWindow];
+- (void)applyTransparency {
+    if (self.isTransparent) return;
+    double alpha = [self configuredAlpha];
+
+    // 只遍历当前 keyWindow 下的图标，不遍历整个视图树
+    UIWindow *keyWindow = [self currentKeyWindow];
+    if (!keyWindow) return;
+
+    Class iconClass = NSClassFromString(@"SBIconView");
+    if (iconClass) {
+        [self traverse:keyWindow iconClass:iconClass alpha:alpha];
+    }
+    self.isTransparent = YES;
 }
 
-- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    %orig;
-    if (!gEnabled) return;
-    [self didMoveToWindow];
+- (void)restoreOpaque {
+    if (!self.isTransparent) return;
+    UIWindow *keyWindow = [self currentKeyWindow];
+    if (!keyWindow) return;
+
+    Class iconClass = NSClassFromString(@"SBIconView");
+    if (iconClass) {
+        [self traverse:keyWindow iconClass:iconClass alpha:1.0];
+    }
+    self.isTransparent = NO;
 }
 
-// 从窗口移除时清理定时器
-- (void)willMoveToWindow:(UIWindow *)newWindow {
-    %orig;
-    if (!newWindow) {
-        NSTimer *oldTimer = objc_getAssociatedObject(self, kFadeTimerKey);
-        if (oldTimer) {
-            [oldTimer invalidate];
-            objc_setAssociatedObject(self, kFadeTimerKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+- (UIWindow *)currentKeyWindow {
+    if (@available(iOS 15.0, *)) {
+        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+            UIWindowScene *ws = (UIWindowScene *)scene;
+            for (UIWindow *w in ws.windows) {
+                if (w.isKeyWindow) return w;
+            }
         }
     }
+    return nil;
 }
 
-%end
+- (void)traverse:(UIView *)view iconClass:(Class)iconClass alpha:(double)alpha {
+    if ([view isKindOfClass:iconClass]) {
+        view.alpha = alpha;
+    }
+    for (UIView *sub in view.subviews) {
+        [self traverse:sub iconClass:iconClass alpha:alpha];
+    }
+}
 
-// ============ 滑动桌面恢复不透明 ============
-// 不 hook SBIconListView 的滚动方法，改为监听 SBIconController 的滚动通知方法
-// 这个方法是 SpringBoard 内部用来通知图标列表开始滚动的，比直接 hook UIScrollViewDelegate 安全
-@interface SBIconController : NSObject
-- (void)iconListDidBeginScrolling:(id)arg1;
-- (void)iconListDidEndScrolling:(id)arg1;
 @end
 
-%hook SBIconController
-
-- (void)iconListDidBeginScrolling:(id)arg1 {
+%hook SpringBoard
+- (void)applicationDidFinishLaunching:(id)application {
     %orig;
-    // 广播：让所有图标恢复不透明
-    [[NSNotificationCenter defaultCenter] postNotificationName:@"IconTransparencyRestore" object:nil];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [[IconTransparencyManager sharedInstance] userDidInteract];
+    });
 }
-
-- (void)iconListDidEndScrolling:(id)arg1 {
-    %orig;
-    // 滚动结束后，图标会在 touchesEnded 或 didMoveToWindow 里重新启动计时
-    // 这里不需要额外操作
-}
-
 %end
-
-// 让每个图标监听恢复通知
-%hook SBIconView
-
-- (void)didMoveToWindow_Notification {
-    // 占位，实际逻辑在下面的 %ctor 里用通知监听实现
-}
-
-%end
-
-// ============ 构造函数 ============
-%ctor {
-    loadPreferences();
-
-    // 监听设置变化
-    CFNotificationCenterAddObserver(
-        CFNotificationCenterGetDarwinNotifyCenter(),
-        NULL,
-        prefsChanged,
-        CFSTR("com.yourname.icontransparency/prefsChanged"),
-        NULL,
-        CFNotificationSuspensionBehaviorDeliverImmediately
-    );
-}
