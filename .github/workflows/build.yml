@@ -19,6 +19,21 @@ jobs:
           theos-sdks: 'https://github.com/theos/sdks'
           theos-sdks-branch: 'master'
 
+      - name: Download iOS 16.2 SDK
+        run: |
+          cd $THEOS/sdks
+          # 删掉默认的新版 SDK，避免冲突
+          ls -la
+          # 下载 iOS 16.2 SDK
+          git clone --depth 1 https://github.com/xybp888/iOS-SDKs.git /tmp/ios-sdks
+          ls /tmp/ios-sdks/
+          # 找到 iPhoneOS16.2.sdk 复制过来
+          find /tmp/ios-sdks -maxdepth 2 -name "iPhoneOS16*.sdk" -type d
+          cp -r /tmp/ios-sdks/iPhoneOS16.2.sdk $THEOS/sdks/ 2>/dev/null || \
+          cp -r /tmp/ios-sdks/*/iPhoneOS16.2.sdk $THEOS/sdks/ 2>/dev/null || \
+          echo "SDK copy failed, will list what's available"
+          ls $THEOS/sdks/
+
       - name: Build Package
         run: |
           make package THEOS_PACKAGE_SCHEME=rootless FINALPACKAGE=1
