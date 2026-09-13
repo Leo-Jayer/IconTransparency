@@ -1,6 +1,19 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 
+// ============ 私有类声明 ============
+@interface SBIconController : NSObject
+- (void)iconTapped:(id)arg1;
+@end
+
+@interface SBIconListView : UIView
+@end
+
+@interface SpringBoard : UIApplication
+- (void)applicationDidFinishLaunching:(id)application;
+@end
+
+// ============ 偏好设置键名 ============
 static NSString *const kDelayKey  = @"transparencyDelay";
 static NSString *const kAlphaKey  = @"iconTransparency";
 static const double kDefaultDelay = 3.0;
