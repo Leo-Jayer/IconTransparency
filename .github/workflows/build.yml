@@ -13,14 +13,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install roothide Theos
+      - name: Install roothide Theos (skip SDK)
         run: |
-          bash -c "$(curl -fsSL https://raw.githubusercontent.com/roothide/theos/master/bin/install-theos)"
-          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+          export THEOS=$HOME/theos
+          git clone --recursive https://github.com/roothide/theos.git $THEOS
+          echo "THEOS=$THEOS" >> $GITHUB_ENV
+          echo "$THEOS/bin" >> $GITHUB_PATH
+
+      - name: Install Theos dependencies
+        run: |
+          brew install ldid xz
 
       - name: Download iOS 16.2 SDK
         run: |
-          cd $THEOS/sdks
+          export THEOS=$HOME/theos
+          mkdir -p $THEOS/sdks
           git clone --depth 1 https://github.com/xybp888/iOS-SDKs.git /tmp/ios-sdks
           cp -r /tmp/ios-sdks/iPhoneOS16.2.sdk $THEOS/sdks/
           ls $THEOS/sdks/
