@@ -23,19 +23,18 @@ jobs:
           git clone --recursive https://github.com/roothide/theos.git $THEOS
           echo "THEOS=$THEOS" >> $GITHUB_ENV
           echo "$THEOS/bin" >> $GITHUB_PATH
-          ls -la $THEOS/
 
-      - name: Install roothide package tools
+      - name: Inspect roothide Theos package tools
         run: |
           export THEOS=$HOME/theos
-          # roothide 的打包工具在 roothide/roothide 仓库里
-          git clone --depth 1 https://github.com/roothide/roothide.git /tmp/roothide
-          ls /tmp/roothide/
-          # 找到打包脚本，复制到 $THEOS/bin
-          find /tmp/roothide -maxdepth 2 -type f -name "*package*" -o -name "*roothide*" | head -20
-          # 常见做法：从 roothide-package 克隆
-          git clone --depth 1 https://github.com/roothide/roothide-package.git /tmp/roothide-package 2>/dev/null || true
-          ls /tmp/roothide-package/ 2>/dev/null || echo "roothide-package not found"
+          echo "=== bin ==="
+          ls -la $THEOS/bin/
+          echo "=== makefiles/package ==="
+          ls -la $THEOS/makefiles/package/ 2>/dev/null || echo "no package dir"
+          echo "=== makefiles/package.mk ==="
+          cat $THEOS/makefiles/package.mk 2>/dev/null | head -60
+          echo "=== find roothide tools ==="
+          find $THEOS -maxdepth 3 -iname "*roothide*" 2>/dev/null
 
       - name: Download iOS 16.2 SDK
         run: |
