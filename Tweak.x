@@ -1,18 +1,16 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 
-// C 函数：递归查找第一个 SBIconView
-static UIView *findFirst(UIView *view, Class iconClass) {
-    if ([view isKindOfClass:iconClass]) return view;
+static void dumpClasses(UIView *view, int depth) {
+    if (depth > 8) return;
+    NSString *indent = [@"" stringByPaddingToLength:depth * 2 withString:@" " startingAtIndex:0];
+    NSLog(@"[IconDump] %@%@", indent, NSStringFromClass([view class]));
     for (UIView *sub in view.subviews) {
-        UIView *found = findFirst(sub, iconClass);
-        if (found) return found;
+        dumpClasses(sub, depth + 1);
     }
-    return nil;
 }
 
-// C 函数：SpringBoard 启动 15 秒后，只改第一个图标的 alpha
-static void testOneIcon(void) {
+static void dumpIconTree(void) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(15.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         UIWindow *keyWindow = nil;
         for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
@@ -23,21 +21,18 @@ static void testOneIcon(void) {
             }
             if (keyWindow) break;
         }
-        if (!keyWindow) return;
-
-        Class iconClass = NSClassFromString(@"SBIconView");
-        if (!iconClass) return;
-
-        UIView *firstIcon = findFirst(keyWindow, iconClass);
-        if (firstIcon) {
-            firstIcon.alpha = 0.3;
+        if (!keyWindow) {
+            NSLog(@"[IconDump] keyWindow is nil");
+            return;
         }
+        NSLog(@"[IconDump] keyWindow = %@", NSStringFromClass([keyWindow class]));
+        dumpClasses(keyWindow, 0);
     });
 }
 
 %hook SpringBoard
 - (void)applicationDidFinishLaunching:(id)application {
     %orig;
-    testOneIcon();
+    dumpIconTree();
 }
 %end
