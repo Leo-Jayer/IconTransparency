@@ -27,7 +27,6 @@ jobs:
       - name: Setup roothide package format
         run: |
           export THEOS=$HOME/theos
-
           printf '%s\n' \
             '_THEOS_PACKAGE_FORMAT_LOADED := 1' \
             '' \
@@ -37,20 +36,21 @@ jobs:
             '' \
             'include $(THEOS_MAKE_PATH)/package/deb.mk' \
             > $THEOS/makefiles/package/roothide.mk
-
-          echo "=== roothide.mk ==="
-          cat $THEOS/makefiles/package/roothide.mk
-
-          echo "=== roothide instance 文件列表 ==="
-          ls -la $THEOS/vendor/mod/roothide/instance/
-
-          echo "=== 备份并强制覆盖 instance 规则 ==="
           cp -f $THEOS/vendor/mod/roothide/instance/rules.mk $THEOS/makefiles/instance/rules.mk
           cp -f $THEOS/vendor/mod/roothide/instance/library.mk $THEOS/makefiles/instance/library.mk
           cp -f $THEOS/vendor/mod/roothide/instance/framework.mk $THEOS/makefiles/instance/framework.mk
 
-          echo "=== 覆盖后 rules.mk 前 20 行 ==="
-          head -20 $THEOS/makefiles/instance/rules.mk
+      - name: Debug rules.mk line 3
+        run: |
+          export THEOS=$HOME/theos
+          echo "=== makefiles/instance/rules.mk 前 15 行 ==="
+          head -15 $THEOS/makefiles/instance/rules.mk
+          echo ""
+          echo "=== vendor/mod/roothide/instance/rules.mk 前 15 行 ==="
+          head -15 $THEOS/vendor/mod/roothide/instance/rules.mk
+          echo ""
+          echo "=== 项目 Makefile ==="
+          cat $GITHUB_WORKSPACE/Makefile
 
       - name: Download iOS 16.2 SDK
         run: |
