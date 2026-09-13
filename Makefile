@@ -17,3 +17,6 @@ IconTransparency_CFLAGS = -fobjc-arc -fmodules -Wno-deprecated-declarations
 IconTransparency_FRAMEWORKS = UIKit
 
 include $(THEOS_MAKE_PATH)/tweak.mk
+
+SUBPROJECTS += prefs
+include $(THEOS_MAKE_PATH)/aggregate.mk
