@@ -24,17 +24,27 @@ jobs:
           echo "THEOS=$THEOS" >> $GITHUB_ENV
           echo "$THEOS/bin" >> $GITHUB_PATH
 
-      - name: Inspect roothide Theos package tools
+      - name: Setup roothide package format
         run: |
           export THEOS=$HOME/theos
-          echo "=== bin ==="
-          ls -la $THEOS/bin/
-          echo "=== makefiles/package ==="
-          ls -la $THEOS/makefiles/package/ 2>/dev/null || echo "no package dir"
-          echo "=== makefiles/package.mk ==="
-          cat $THEOS/makefiles/package.mk 2>/dev/null | head -60
-          echo "=== find roothide tools ==="
-          find $THEOS -maxdepth 3 -iname "*roothide*" 2>/dev/null
+          echo "=== vendor/mod/roothide ==="
+          ls -la $THEOS/vendor/mod/roothide/
+          echo "=== 查找 roothide.mk ==="
+          find $THEOS/vendor -name "roothide.mk" 2>/dev/null
+          find $THEOS/vendor/mod/roothide -type f 2>/dev/null
+
+          # 如果 vendor/mod/roothide 里有 roothide.mk，复制到 makefiles/package/
+          if [ -f $THEOS/vendor/mod/roothide/roothide.mk ]; then
+            cp $THEOS/vendor/mod/roothide/roothide.mk $THEOS/makefiles/package/roothide.mk
+            echo "已复制 roothide.mk"
+          else
+            echo "vendor/mod/roothide/roothide.mk 不存在，尝试其他位置"
+            # 尝试在 vendor 里找
+            find $THEOS/vendor -name "*.mk" -path "*roothide*" -exec cp {} $THEOS/makefiles/package/roothide.mk \;
+          fi
+
+          echo "=== makefiles/package/ 现在的内容 ==="
+          ls -la $THEOS/makefiles/package/
 
       - name: Download iOS 16.2 SDK
         run: |
