@@ -1,0 +1,9 @@
+Package: com.yourname.icontransparency
+Name: IconTransparency
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: 桌面图标与小组件静止数秒后自动渐变透明，延迟与透明度可自定义。
+Maintainer: yourname
+Author: yourname
+Section: Tweaks
+Depends: mobilesubstrate, firmware (>= 15.0)
