@@ -1,4 +1,4 @@
-name: Build Tweak
+name: Build Tweak (roothide)
 
 on:
   push:
@@ -7,39 +7,31 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Theos
-        uses: Randomblock1/theos-action@v1
-        with:
-          theos-sdks: 'https://github.com/theos/sdks'
-          theos-sdks-branch: 'master'
+      - name: Install roothide Theos
+        run: |
+          bash -c "$(curl -fsSL https://raw.githubusercontent.com/roothide/theos/master/bin/install-theos)"
+          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
 
       - name: Download iOS 16.2 SDK
         run: |
           cd $THEOS/sdks
-          # 删掉默认的新版 SDK，避免冲突
-          ls -la
-          # 下载 iOS 16.2 SDK
           git clone --depth 1 https://github.com/xybp888/iOS-SDKs.git /tmp/ios-sdks
-          ls /tmp/ios-sdks/
-          # 找到 iPhoneOS16.2.sdk 复制过来
-          find /tmp/ios-sdks -maxdepth 2 -name "iPhoneOS16*.sdk" -type d
-          cp -r /tmp/ios-sdks/iPhoneOS16.2.sdk $THEOS/sdks/ 2>/dev/null || \
-          cp -r /tmp/ios-sdks/*/iPhoneOS16.2.sdk $THEOS/sdks/ 2>/dev/null || \
-          echo "SDK copy failed, will list what's available"
+          cp -r /tmp/ios-sdks/iPhoneOS16.2.sdk $THEOS/sdks/
           ls $THEOS/sdks/
 
-      - name: Build Package
+      - name: Build roothide Package
         run: |
-          make package THEOS_PACKAGE_SCHEME=rootless FINALPACKAGE=1
+          export THEOS=$HOME/theos
+          make package THEOS_PACKAGE_SCHEME=roothide FINALPACKAGE=1
 
       - name: Upload deb
         uses: actions/upload-artifact@v4
         with:
-          name: IconTransparency-deb
+          name: IconTransparency-roothide-deb
           path: packages/*.deb
