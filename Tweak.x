@@ -52,10 +52,11 @@ static const double kDefaultAlpha = 0.3;
 }
 
 - (void)userDidInteract {
-    [self.idleTimer invalidate];
-    self.idleTimer = nil;
+    // 恢复不透明
     [self restoreOpaque];
 
+    // 取消旧计时器，重新计时
+    [self.idleTimer invalidate];
     double delay = [self configuredDelay];
     self.idleTimer = [NSTimer scheduledTimerWithTimeInterval:delay
                                                       target:self
@@ -70,10 +71,14 @@ static const double kDefaultAlpha = 0.3;
     Class iconClass = objc_getClass("SBIconView");
     if (!iconClass) return;
 
-    UIWindow *keyWindow = [self currentKeyWindow];
-    if (!keyWindow) return;
-
-    [self traverseSetAlpha:keyWindow iconClass:iconClass alpha:alpha];
+    // 遍历所有 window，保证不漏
+    for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+        if (![scene isKindOfClass:[UIWindowScene class]]) continue;
+        UIWindowScene *ws = (UIWindowScene *)scene;
+        for (UIWindow *w in ws.windows) {
+            [self traverseSetAlpha:w iconClass:iconClass alpha:alpha];
+        }
+    }
     self.isTransparent = YES;
 }
 
@@ -82,22 +87,15 @@ static const double kDefaultAlpha = 0.3;
     Class iconClass = objc_getClass("SBIconView");
     if (!iconClass) return;
 
-    UIWindow *keyWindow = [self currentKeyWindow];
-    if (!keyWindow) return;
-
-    [self traverseSetAlpha:keyWindow iconClass:iconClass alpha:1.0];
-    self.isTransparent = NO;
-}
-
-- (UIWindow *)currentKeyWindow {
+    // 遍历所有 window，保证不漏
     for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
         if (![scene isKindOfClass:[UIWindowScene class]]) continue;
         UIWindowScene *ws = (UIWindowScene *)scene;
         for (UIWindow *w in ws.windows) {
-            if (w.isKeyWindow) return w;
+            [self traverseSetAlpha:w iconClass:iconClass alpha:1.0];
         }
     }
-    return nil;
+    self.isTransparent = NO;
 }
 
 - (void)traverseSetAlpha:(UIView *)view iconClass:(Class)iconClass alpha:(double)alpha {
@@ -116,14 +114,7 @@ static const double kDefaultAlpha = 0.3;
 %hook SBIconScrollView
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView {
     %orig;
-    [[IconTransparencyManager sharedInstance] userDidInteract];
-}
-- (void)scrollViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate {
-    %orig;
-    [[IconTransparencyManager sharedInstance] userDidInteract];
-}
-- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
-    %orig;
+    // 每次滚动都重置计时，用户停手后计时器自然触发
     [[IconTransparencyManager sharedInstance] userDidInteract];
 }
 %end
