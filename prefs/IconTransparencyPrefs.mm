@@ -1,6 +1,7 @@
 #import <Preferences/PSListController.h>
 #import <Preferences/PSSpecifier.h>
 #import <notify.h>
+#import "ITSliderCell.h"
 
 #define PREFS_PATH @"/var/mobile/Library/Preferences/com.yourname.icontransparency.plist"
 
@@ -30,37 +31,35 @@
 
         // ============ 透明化设置 ============
         PSSpecifier *group = [PSSpecifier groupSpecifierWithName:@"透明化设置"];
-        [group setProperty:@"桌面静止指定秒数后，图标渐变透明。" forKey:@"footerText"];
+        [group setProperty:@"桌面静止指定秒数后，图标渐变透明。点击数值可直接输入。" forKey:@"footerText"];
         [specs addObject:group];
 
-        // 透明度滑块：0% 不透明，100% 全透明
+        // 透明度滑块：用自定义 cell
         PSSpecifier *alpha = [PSSpecifier preferenceSpecifierNamed:@"透明度"
                                                             target:self
                                                                set:@selector(setPreferenceValue:specifier:)
                                                                get:@selector(readPreferenceValue:)
                                                             detail:nil
-                                                              cell:PSSliderCell
+                                                              cell:NSClassFromString(@"ITSliderCell")
                                                               edit:nil];
         [alpha setProperty:@"iconTransparency" forKey:@"key"];
         [alpha setProperty:@0.0 forKey:@"min"];
         [alpha setProperty:@1.0 forKey:@"max"];
         [alpha setProperty:@0.9 forKey:@"default"];
-        [alpha setProperty:@YES forKey:@"showValue"];
         [specs addObject:alpha];
 
-        // 静止延迟滑块：1~10 秒
+        // 静止时间滑块：用自定义 cell
         PSSpecifier *delay = [PSSpecifier preferenceSpecifierNamed:@"静止时间"
                                                             target:self
                                                                set:@selector(setPreferenceValue:specifier:)
                                                                get:@selector(readPreferenceValue:)
                                                             detail:nil
-                                                              cell:PSSliderCell
+                                                              cell:NSClassFromString(@"ITSliderCell")
                                                               edit:nil];
         [delay setProperty:@"transparencyDelay" forKey:@"key"];
         [delay setProperty:@1 forKey:@"min"];
         [delay setProperty:@10 forKey:@"max"];
         [delay setProperty:@3 forKey:@"default"];
-        [delay setProperty:@YES forKey:@"showValue"];
         [specs addObject:delay];
 
         _specifiers = specs;
