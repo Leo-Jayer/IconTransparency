@@ -24,24 +24,17 @@ jobs:
           echo "THEOS=$THEOS" >> $GITHUB_ENV
           echo "$THEOS/bin" >> $GITHUB_PATH
 
-      - name: Setup roothide package format
+      - name: Debug roothide internals
         run: |
           export THEOS=$HOME/theos
-
-          # 删掉之前错误的 roothide.mk
-          rm -f $THEOS/makefiles/package/roothide.mk
-
-          # 复制正确的 roothide 打包规则
-          cp $THEOS/vendor/mod/roothide/package/deb.mk $THEOS/makefiles/package/roothide.mk
-
-          echo "=== roothide.mk 前 30 行 ==="
-          head -30 $THEOS/makefiles/package/roothide.mk
-
-          # 覆盖 instance 规则，让 roothide 生效
-          cp $THEOS/vendor/mod/roothide/instance/*.mk $THEOS/makefiles/instance/ 2>/dev/null || true
-
-          echo "=== makefiles/package/ ==="
-          ls -la $THEOS/makefiles/package/
+          echo "=== 原始 deb.mk ==="
+          cat $THEOS/vendor/mod/roothide/package/deb.mk
+          echo ""
+          echo "=== 原始 package.mk ==="
+          cat $THEOS/vendor/mod/roothide/package.mk
+          echo ""
+          echo "=== Theos 主 package.mk 中 _THEOS_PACKAGE_FORMAT 相关 ==="
+          grep -n "_THEOS_PACKAGE_FORMAT" $THEOS/makefiles/package.mk
 
       - name: Download iOS 16.2 SDK
         run: |
