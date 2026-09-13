@@ -106,7 +106,16 @@ static const BOOL kDefaultEnabled = YES;
     double delay = [self configuredDelay];
 
     if (now - self.lastTouchTime >= delay) {
-        [self applyTransparency];
+        // 已超过静止时间
+        if (self.isTransparent) {
+            // 已经是透明状态，静默补漏新出现的图标
+            Class iconClass = objc_getClass("SBIconView");
+            if (iconClass) {
+                [self traverseAllWindows:iconClass alpha:[self configuredAlpha] animated:NO];
+            }
+        } else {
+            [self applyTransparency];
+        }
     } else {
         [self restoreOpaque];
     }
@@ -178,17 +187,6 @@ static void prefsChangedCallback(CFNotificationCenterRef center, void *observer,
 - (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     %orig;
     [[IconTransparencyManager sharedInstance] recordTouch];
-}
-
-// 新增：图标出现在窗口时，如果当前是透明状态，立刻应用
-- (void)didMoveToWindow {
-    %orig;
-    IconTransparencyManager *mgr = [IconTransparencyManager sharedInstance];
-    if (![mgr isEnabled]) return;
-    if (!mgr.isTransparent) return;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        self.alpha = [mgr configuredAlpha];
-    });
 }
 %end
 
