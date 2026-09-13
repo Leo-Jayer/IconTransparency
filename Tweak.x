@@ -7,15 +7,13 @@ static NSString *const kAlphaKey  = @"iconTransparency";
 static const double kDefaultDelay = 3.0;
 static const double kDefaultAlpha = 0.3;
 
-@interface SBIconController : NSObject
-+ (instancetype)sharedInstance;
-@end
-
 @interface IconTransparencyManager : NSObject
 @property (nonatomic, assign) BOOL isTransparent;
-@property (nonatomic, strong) NSTimer *idleTimer;
+@property (nonatomic, assign) NSTimeInterval lastTouchTime;
+@property (nonatomic, strong) NSTimer *checkTimer;
 + (instancetype)sharedInstance;
-- (void)userDidInteract;
+- (void)start;
+- (void)recordTouch;
 - (void)applyTransparency;
 - (void)restoreOpaque;
 @end
@@ -35,6 +33,7 @@ static const double kDefaultAlpha = 0.3;
     self = [super init];
     if (self) {
         _isTransparent = NO;
+        _lastTouchTime = [NSDate date].timeIntervalSince1970;
     }
     return self;
 }
@@ -55,15 +54,31 @@ static const double kDefaultAlpha = 0.3;
     return a;
 }
 
-- (void)userDidInteract {
+- (void)start {
+    // 每 0.5 秒检查一次
+    self.checkTimer = [NSTimer scheduledTimerWithTimeInterval:0.5
+                                                       target:self
+                                                     selector:@selector(check)
+                                                     userInfo:nil
+                                                      repeats:YES];
+}
+
+- (void)recordTouch {
+    self.lastTouchTime = [NSDate date].timeIntervalSince1970;
     [self restoreOpaque];
-    [self.idleTimer invalidate];
+}
+
+- (void)check {
+    NSTimeInterval now = [NSDate date].timeIntervalSince1970;
     double delay = [self configuredDelay];
-    self.idleTimer = [NSTimer scheduledTimerWithTimeInterval:delay
-                                                      target:self
-                                                    selector:@selector(applyTransparency)
-                                                    userInfo:nil
-                                                     repeats:NO];
+
+    if (now - self.lastTouchTime >= delay) {
+        // 超过设定时间没触摸 → 变透明
+        [self applyTransparency];
+    } else {
+        // 还在操作中 → 恢复
+        [self restoreOpaque];
+    }
 }
 
 - (void)applyTransparency {
@@ -72,9 +87,13 @@ static const double kDefaultAlpha = 0.3;
     Class iconClass = objc_getClass("SBIconView");
     if (!iconClass) return;
 
-    // 从 SBIconController 拿到所有 window，遍历全部
     [self traverseAllWindows:iconClass alpha:alpha];
     self.isTransparent = YES;
+
+    [@"applied" writeToFile:@"/var/mobile/Library/Preferences/trans_state.txt"
+                 atomically:YES
+                   encoding:NSUTF8StringEncoding
+                      error:nil];
 }
 
 - (void)restoreOpaque {
@@ -87,7 +106,6 @@ static const double kDefaultAlpha = 0.3;
 }
 
 - (void)traverseAllWindows:(Class)iconClass alpha:(double)alpha {
-    // 方法 1：遍历 connectedScenes 的所有 window
     for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
         if (![scene isKindOfClass:[UIWindowScene class]]) continue;
         UIWindowScene *ws = (UIWindowScene *)scene;
@@ -109,39 +127,45 @@ static const double kDefaultAlpha = 0.3;
 
 @end
 
-// ============ 用触摸事件结束来触发交互 ============
-// SBIconView 的 touchesEnded 最可靠，但之前 hook 会崩
-// 改成 hook SBIconController 的 iconTapped
-@interface SBIconController (Hook)
-@end
-
-%hook SBIconController
-- (void)iconTapped:(id)arg1 {
+// ============ 用触摸事件记录交互 ============
+// Hook SBIconView 的 touchesBegan/Ended
+%hook SBIconView
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     %orig;
-    [[IconTransparencyManager sharedInstance] userDidInteract];
+    [[IconTransparencyManager sharedInstance] recordTouch];
+}
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    %orig;
+    [[IconTransparencyManager sharedInstance] recordTouch];
+}
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    %orig;
+    [[IconTransparencyManager sharedInstance] recordTouch];
 }
 %end
 
-// 用 scrollView 的 decelerate 结束检测
+// Hook SBIconScrollView 记录滚动
 %hook SBIconScrollView
-- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView {
+- (void)scrollViewDidScroll:(UIScrollView *)scrollView {
     %orig;
-    [[IconTransparencyManager sharedInstance] userDidInteract];
+    [[IconTransparencyManager sharedInstance] recordTouch];
 }
-- (void)scrollViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate {
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     %orig;
-    if (!decelerate) {
-        [[IconTransparencyManager sharedInstance] userDidInteract];
-    }
+    [[IconTransparencyManager sharedInstance] recordTouch];
+}
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    %orig;
+    [[IconTransparencyManager sharedInstance] recordTouch];
 }
 %end
 
-// ============ SpringBoard 启动后启动计时 ============
+// ============ 启动 ============
 %hook SpringBoard
 - (void)applicationDidFinishLaunching:(id)application {
     %orig;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [[IconTransparencyManager sharedInstance] userDidInteract];
+        [[IconTransparencyManager sharedInstance] start];
     });
 }
 %end
