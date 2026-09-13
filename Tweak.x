@@ -159,8 +159,6 @@ static const double kDefaultAlpha = 0.3;
     }
 }
 
-@end
-
 %hook SBIconController
 - (void)iconTapped:(id)arg1 {
     %orig;
