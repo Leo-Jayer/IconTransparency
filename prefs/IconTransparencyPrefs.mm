@@ -13,6 +13,22 @@
     if (_specifiers == nil) {
         NSMutableArray *specs = [NSMutableArray array];
 
+        // ============ 总开关 ============
+        PSSpecifier *masterGroup = [PSSpecifier groupSpecifierWithName:@""];
+        [specs addObject:masterGroup];
+
+        PSSpecifier *enabledSwitch = [PSSpecifier preferenceSpecifierNamed:@"启用插件"
+                                                                    target:self
+                                                                       set:@selector(setPreferenceValue:specifier:)
+                                                                       get:@selector(readPreferenceValue:)
+                                                                    detail:nil
+                                                                      cell:PSSwitchCell
+                                                                      edit:nil];
+        [enabledSwitch setProperty:@"enabled" forKey:@"key"];
+        [enabledSwitch setProperty:@YES forKey:@"default"];
+        [specs addObject:enabledSwitch];
+
+        // ============ 透明化设置 ============
         PSSpecifier *group = [PSSpecifier groupSpecifierWithName:@"透明化设置"];
         [group setProperty:@"桌面静止指定秒数后，图标渐变透明。" forKey:@"footerText"];
         [specs addObject:group];
@@ -47,22 +63,6 @@
         [delay setProperty:@YES forKey:@"showValue"];
         [specs addObject:delay];
 
-        // 注销按钮
-        PSSpecifier *group2 = [PSSpecifier groupSpecifierWithName:@"应用设置"];
-        [group2 setProperty:@"修改设置后需注销 SpringBoard 才能生效。" forKey:@"footerText"];
-        [specs addObject:group2];
-
-        PSSpecifier *respringBtn = [PSSpecifier preferenceSpecifierNamed:@"注销生效"
-                                                                   target:self
-                                                                      set:nil
-                                                                      get:nil
-                                                                   detail:nil
-                                                                     cell:PSButtonCell
-                                                                     edit:nil];
-        [respringBtn setProperty:@"respring" forKey:@"action"];
-        [respringBtn setProperty:@YES forKey:@"enabled"];
-        [specs addObject:respringBtn];
-
         _specifiers = specs;
     }
     return _specifiers;
@@ -85,6 +85,7 @@
     if (!value) {
         if ([key isEqualToString:@"transparencyDelay"]) return @3;
         if ([key isEqualToString:@"iconTransparency"]) return @0.9;
+        if ([key isEqualToString:@"enabled"]) return @YES;
     }
     return value;
 }
@@ -94,22 +95,6 @@
     NSMutableDictionary *dict = [[self loadPrefsDict] mutableCopy];
     dict[key] = value;
     [self savePrefsDict:dict];
-}
-
-- (void)respring {
-    // 方式 1：通过 SBUIController 注销
-    Class sbuic = NSClassFromString(@"SBUIController");
-    if (sbuic) {
-        #pragma clang diagnostic push
-        #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-        id controller = [sbuic performSelector:NSSelectorFromString(@"sharedInstance")];
-        if (controller && [controller respondsToSelector:NSSelectorFromString(@"rebootApplication:withReason:")]) {
-            [controller performSelector:NSSelectorFromString(@"rebootApplication:withReason:")
-                             withObject:nil
-                             withObject:@"IconTransparency respring"];
-        }
-        #pragma clang diagnostic pop
-    }
 }
 
 @end
