@@ -10,10 +10,12 @@ static const double kDefaultAlpha = 0.3;
 @interface IconTransparencyManager : NSObject
 @property (nonatomic, assign) BOOL isTransparent;
 @property (nonatomic, strong) NSTimer *idleTimer;
+@property (nonatomic, assign) NSTimeInterval lastInteractTime;
 + (instancetype)sharedInstance;
 - (void)userDidInteract;
 - (void)applyTransparency;
 - (void)restoreOpaque;
+- (void)restartTimer;
 @end
 
 @implementation IconTransparencyManager
@@ -31,6 +33,7 @@ static const double kDefaultAlpha = 0.3;
     self = [super init];
     if (self) {
         _isTransparent = NO;
+        _lastInteractTime = 0;
     }
     return self;
 }
@@ -51,11 +54,21 @@ static const double kDefaultAlpha = 0.3;
     return a;
 }
 
+// 用户操作：恢复不透明 + 重置计时器
+// 加 0.1 秒防抖，避免 scrollViewDidScroll 被自身触发导致死循环
 - (void)userDidInteract {
-    // 恢复不透明
-    [self restoreOpaque];
+    NSTimeInterval now = [NSDate date].timeIntervalSince1970;
+    if (now - self.lastInteractTime < 0.1) {
+        return;
+    }
+    self.lastInteractTime = now;
 
-    // 取消旧计时器，重新计时
+    [self restoreOpaque];
+    [self restartTimer];
+}
+
+// 只重置计时器，不动 alpha
+- (void)restartTimer {
     [self.idleTimer invalidate];
     double delay = [self configuredDelay];
     self.idleTimer = [NSTimer scheduledTimerWithTimeInterval:delay
@@ -71,14 +84,7 @@ static const double kDefaultAlpha = 0.3;
     Class iconClass = objc_getClass("SBIconView");
     if (!iconClass) return;
 
-    // 遍历所有 window，保证不漏
-    for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
-        if (![scene isKindOfClass:[UIWindowScene class]]) continue;
-        UIWindowScene *ws = (UIWindowScene *)scene;
-        for (UIWindow *w in ws.windows) {
-            [self traverseSetAlpha:w iconClass:iconClass alpha:alpha];
-        }
-    }
+    [self traverseAllWindows:iconClass alpha:alpha];
     self.isTransparent = YES;
 }
 
@@ -87,15 +93,19 @@ static const double kDefaultAlpha = 0.3;
     Class iconClass = objc_getClass("SBIconView");
     if (!iconClass) return;
 
-    // 遍历所有 window，保证不漏
+    [self traverseAllWindows:iconClass alpha:1.0];
+    self.isTransparent = NO;
+}
+
+// 遍历所有 window（包括隐藏的、非 key 的），确保覆盖 Dock
+- (void)traverseAllWindows:(Class)iconClass alpha:(double)alpha {
     for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
         if (![scene isKindOfClass:[UIWindowScene class]]) continue;
         UIWindowScene *ws = (UIWindowScene *)scene;
         for (UIWindow *w in ws.windows) {
-            [self traverseSetAlpha:w iconClass:iconClass alpha:1.0];
+            [self traverseSetAlpha:w iconClass:iconClass alpha:alpha];
         }
     }
-    self.isTransparent = NO;
 }
 
 - (void)traverseSetAlpha:(UIView *)view iconClass:(Class)iconClass alpha:(double)alpha {
@@ -114,7 +124,6 @@ static const double kDefaultAlpha = 0.3;
 %hook SBIconScrollView
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView {
     %orig;
-    // 每次滚动都重置计时，用户停手后计时器自然触发
     [[IconTransparencyManager sharedInstance] userDidInteract];
 }
 %end
