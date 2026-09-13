@@ -27,20 +27,17 @@ jobs:
       - name: Setup roothide package format
         run: |
           export THEOS=$HOME/theos
-
-          cat > $THEOS/makefiles/package/roothide.mk << 'EOF'
-_THEOS_PACKAGE_FORMAT_LOADED := 1
-
-ifneq ($(THEOS_PACKAGE_ARCH),iphoneos-arm64e)
-	THEOS_PACKAGE_ARCH := iphoneos-arm64e
-endif
-
-include $(THEOS_MAKE_PATH)/package/deb.mk
-EOF
-
+          printf '%s\n' \
+            '_THEOS_PACKAGE_FORMAT_LOADED := 1' \
+            '' \
+            'ifneq ($(THEOS_PACKAGE_ARCH),iphoneos-arm64e)' \
+            '	THEOS_PACKAGE_ARCH := iphoneos-arm64e' \
+            'endif' \
+            '' \
+            'include $(THEOS_MAKE_PATH)/package/deb.mk' \
+            > $THEOS/makefiles/package/roothide.mk
           echo "=== roothide.mk ==="
           cat $THEOS/makefiles/package/roothide.mk
-
           cp $THEOS/vendor/mod/roothide/instance/*.mk $THEOS/makefiles/instance/ 2>/dev/null || true
 
       - name: Download iOS 16.2 SDK
