@@ -5,6 +5,7 @@
 static NSString *const kPrefsPath = @"/var/mobile/Library/Preferences/com.yourname.icontransparency.plist";
 static const double kDefaultDelay = 3.0;
 static const double kDefaultAlpha = 0.9;
+static const BOOL kDefaultEnabled = YES;
 
 @interface IconTransparencyManager : NSObject
 @property (nonatomic, assign) BOOL isTransparent;
@@ -15,6 +16,7 @@ static const double kDefaultAlpha = 0.9;
 - (void)recordTouch;
 - (void)applyTransparency;
 - (void)restoreOpaque;
+- (BOOL)isEnabled;
 @end
 
 @implementation IconTransparencyManager
@@ -40,6 +42,13 @@ static const double kDefaultAlpha = 0.9;
 - (NSDictionary *)loadPrefsDict {
     NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:kPrefsPath];
     return dict ?: @{};
+}
+
+- (BOOL)isEnabled {
+    NSDictionary *dict = [self loadPrefsDict];
+    NSNumber *value = dict[@"enabled"];
+    if (!value) return kDefaultEnabled;
+    return [value boolValue];
 }
 
 - (double)configuredDelay {
@@ -76,6 +85,12 @@ static const double kDefaultAlpha = 0.9;
 }
 
 - (void)check {
+    // 总开关关闭时，恢复不透明且不做任何操作
+    if (![self isEnabled]) {
+        [self restoreOpaque];
+        return;
+    }
+
     NSTimeInterval now = [NSDate date].timeIntervalSince1970;
     double delay = [self configuredDelay];
 
