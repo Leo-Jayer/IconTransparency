@@ -57,12 +57,6 @@
     NSString *key = [specifier propertyForKey:@"key"];
     [[NSUserDefaults standardUserDefaults] setObject:value forKey:key];
     [[NSUserDefaults standardUserDefaults] synchronize];
-
-    CFNotificationCenterPostNotification(
-        CFNotificationCenterGetDarwinNotifyCenter(),
-        CFSTR("com.yourname.icontransparency/settingschanged"),
-        NULL, NULL, YES
-    );
 }
 
 @end
