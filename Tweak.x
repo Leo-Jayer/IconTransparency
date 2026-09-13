@@ -82,11 +82,14 @@ static const double kDefaultAlpha = 0.3;
 }
 
 - (void)applyTransparency {
+    // 防重复保护：已经在透明状态就不重复执行，避免递归和动画叠加
+    if (self.isTransparent) return;
+
     double alpha = [self configuredAlpha];
     [self enumerateIconViews:^(UIView *view) {
         [UIView animateWithDuration:0.6
                               delay:0
-                            options:UIViewAnimationOptionBeginFromCurrentState
+                            options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction
                          animations:^{
             view.alpha = alpha;
         } completion:nil];
@@ -96,10 +99,11 @@ static const double kDefaultAlpha = 0.3;
 
 - (void)restoreOpaque {
     if (!self.isTransparent) return;
+
     [self enumerateIconViews:^(UIView *view) {
         [UIView animateWithDuration:0.3
                               delay:0
-                            options:UIViewAnimationOptionBeginFromCurrentState
+                            options:UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction
                          animations:^{
             view.alpha = 1.0;
         } completion:nil];
@@ -180,26 +184,15 @@ static const double kDefaultAlpha = 0.3;
     %orig;
     [[IconTransparencyManager sharedInstance] scheduleTransparency];
 }
-- (void)layoutSubviews {
-    %orig;
-    IconTransparencyManager *mgr = [IconTransparencyManager sharedInstance];
-    if (mgr.isTransparent) {
-        double alpha = [mgr configuredAlpha];
-        for (UIView *sub in self.subviews) {
-            Class iconViewClass   = NSClassFromString(@"SBIconView");
-            Class widgetViewClass = NSClassFromString(@"SBIconWidgetView");
-            if ((iconViewClass && [sub isKindOfClass:iconViewClass]) ||
-                (widgetViewClass && [sub isKindOfClass:widgetViewClass])) {
-                sub.alpha = alpha;
-            }
-        }
-    }
-}
+// 注意：layoutSubviews hook 已删除，它是导致 SpringBoard 递归崩溃的主因
 %end
 
 %hook SpringBoard
 - (void)applicationDidFinishLaunching:(id)application {
     %orig;
-    [[IconTransparencyManager sharedInstance] scheduleTransparency];
+    // 延迟 5 秒再启动计时，确保 SpringBoard 完全初始化完毕
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [[IconTransparencyManager sharedInstance] scheduleTransparency];
+    });
 }
 %end
