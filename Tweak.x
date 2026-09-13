@@ -107,9 +107,8 @@ static const double kDefaultAlpha = 0.3;
     self.isTransparent = NO;
 }
 
-- (void)enumerateIconViews:(void (^)(UIView *view))block {
-    if (!block) return;
-
+// 获取当前 keyWindow（兼容 iOS 15+，不再使用弃用的 windows 属性）
+- (UIWindow *)currentKeyWindow {
     UIWindow *keyWindow = nil;
     if (@available(iOS 15.0, *)) {
         for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
@@ -123,18 +122,14 @@ static const double kDefaultAlpha = 0.3;
             }
             if (keyWindow) break;
         }
-    } else {
-        for (UIWindow *window in [UIApplication sharedApplication].windows) {
-            if (window.isKeyWindow) {
-                keyWindow = window;
-                break;
-            }
-        }
     }
-
-    if (!keyWindow) return;
-    ...
+    return keyWindow;
 }
+
+- (void)enumerateIconViews:(void (^)(UIView *view))block {
+    if (!block) return;
+
+    UIWindow *keyWindow = [self currentKeyWindow];
     if (!keyWindow) return;
 
     Class iconViewClass   = NSClassFromString(@"SBIconView");
@@ -158,6 +153,10 @@ static const double kDefaultAlpha = 0.3;
         [self traverseView:sub iconClass:iconClass widgetClass:widgetClass block:block];
     }
 }
+
+@end
+
+// ============ Hook 部分 ============
 
 %hook SBIconController
 - (void)iconTapped:(id)arg1 {
