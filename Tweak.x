@@ -17,6 +17,8 @@ static const BOOL kDefaultEnabled = YES;
 - (void)applyTransparency;
 - (void)restoreOpaque;
 - (BOOL)isEnabled;
+- (double)configuredAlpha;
+- (void)traverseAllWindows:(Class)iconClass alpha:(double)alpha animated:(BOOL)animated;
 @end
 
 @implementation IconTransparencyManager
@@ -85,7 +87,6 @@ static const BOOL kDefaultEnabled = YES;
 }
 
 - (void)check {
-    // 总开关关闭时，恢复不透明且不做任何操作
     if (![self isEnabled]) {
         [self restoreOpaque];
         return;
@@ -168,6 +169,17 @@ static void prefsChangedCallback(CFNotificationCenterRef center, void *observer,
     %orig;
     [[IconTransparencyManager sharedInstance] recordTouch];
 }
+
+// 新增：图标出现在窗口时，如果当前是透明状态，立刻应用
+- (void)didMoveToWindow {
+    %orig;
+    IconTransparencyManager *mgr = [IconTransparencyManager sharedInstance];
+    if (![mgr isEnabled]) return;
+    if (!mgr.isTransparent) return;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        self.alpha = [mgr configuredAlpha];
+    });
+}
 %end
 
 %hook SBIconScrollView
@@ -182,23 +194,6 @@ static void prefsChangedCallback(CFNotificationCenterRef center, void *observer,
 - (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     %orig;
     [[IconTransparencyManager sharedInstance] recordTouch];
-}
-%end
-
-// ============ 文件夹关闭后重新应用透明度 ============
-%hook SBFolderController
-- (void)folderDidClose {
-    %orig;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        IconTransparencyManager *mgr = [IconTransparencyManager sharedInstance];
-        if (![mgr isEnabled]) return;
-        if (!mgr.isTransparent) return;
-        // 重新应用当前透明度
-        double alpha = [mgr configuredAlpha];
-        Class iconClass = objc_getClass("SBIconView");
-        if (!iconClass) return;
-        [mgr traverseAllWindows:iconClass alpha:alpha animated:NO];
-    });
 }
 %end
 
