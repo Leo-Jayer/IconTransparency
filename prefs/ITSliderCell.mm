@@ -1,11 +1,12 @@
 #import "ITSliderCell.h"
+#import <Preferences/PSSpecifier.h>
 #import <notify.h>
 
 #define PREFS_PATH @"/var/mobile/Library/Preferences/com.yourname.icontransparency.plist"
 
 @interface ITSliderCell () <UITextFieldDelegate>
-@property (nonatomic, strong) UILabel *titleLabel;
-@property (nonatomic, strong) UISlider *slider;
+@property (nonatomic, strong) UILabel *customTitleLabel;
+@property (nonatomic, strong) UISlider *customSlider;
 @property (nonatomic, strong) UITextField *valueField;
 @property (nonatomic, copy) NSString *prefsKey;
 @property (nonatomic, assign) double minValue;
@@ -23,11 +24,11 @@
         self.maxValue = [[specifier propertyForKey:@"max"] doubleValue];
 
         // 标题
-        self.titleLabel = [[UILabel alloc] init];
-        self.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightRegular];
-        self.titleLabel.text = [specifier name];
-        self.titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
-        [self.contentView addSubview:self.titleLabel];
+        self.customTitleLabel = [[UILabel alloc] init];
+        self.customTitleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightRegular];
+        self.customTitleLabel.text = [specifier name];
+        self.customTitleLabel.translatesAutoresizingMaskIntoConstraints = NO;
+        [self.contentView addSubview:self.customTitleLabel];
 
         // 数值输入框
         self.valueField = [[UITextField alloc] init];
@@ -39,26 +40,26 @@
         [self.contentView addSubview:self.valueField];
 
         // 滑块
-        self.slider = [[UISlider alloc] init];
-        self.slider.minimumValue = self.minValue;
-        self.slider.maximumValue = self.maxValue;
-        [self.slider addTarget:self action:@selector(sliderChanged:) forControlEvents:UIControlEventValueChanged];
-        self.slider.translatesAutoresizingMaskIntoConstraints = NO;
-        [self.contentView addSubview:self.slider];
+        self.customSlider = [[UISlider alloc] init];
+        self.customSlider.minimumValue = self.minValue;
+        self.customSlider.maximumValue = self.maxValue;
+        [self.customSlider addTarget:self action:@selector(sliderChanged:) forControlEvents:UIControlEventValueChanged];
+        self.customSlider.translatesAutoresizingMaskIntoConstraints = NO;
+        [self.contentView addSubview:self.customSlider];
 
-        // 布局：标题左上，数值右上，滑块在下
+        // 布局
         [NSLayoutConstraint activateConstraints:@[
-            [self.titleLabel.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:20],
-            [self.titleLabel.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:12],
+            [self.customTitleLabel.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:20],
+            [self.customTitleLabel.topAnchor constraintEqualToAnchor:self.contentView.topAnchor constant:12],
 
             [self.valueField.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-20],
-            [self.valueField.centerYAnchor constraintEqualToAnchor:self.titleLabel.centerYAnchor],
+            [self.valueField.centerYAnchor constraintEqualToAnchor:self.customTitleLabel.centerYAnchor],
             [self.valueField.widthAnchor constraintEqualToConstant:80],
 
-            [self.slider.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:20],
-            [self.slider.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-20],
-            [self.slider.topAnchor constraintEqualToAnchor:self.titleLabel.bottomAnchor constant:8],
-            [self.slider.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor constant:-12],
+            [self.customSlider.leadingAnchor constraintEqualToAnchor:self.contentView.leadingAnchor constant:20],
+            [self.customSlider.trailingAnchor constraintEqualToAnchor:self.contentView.trailingAnchor constant:-20],
+            [self.customSlider.topAnchor constraintEqualToAnchor:self.customTitleLabel.bottomAnchor constant:8],
+            [self.customSlider.bottomAnchor constraintEqualToAnchor:self.contentView.bottomAnchor constant:-12],
         ]];
 
         // 读取当前值
@@ -74,16 +75,14 @@
 }
 
 - (void)updateUI {
-    self.slider.value = self.currentValue;
+    self.customSlider.value = self.currentValue;
     [self updateValueText];
 }
 
 - (void)updateValueText {
     if ([self.prefsKey isEqualToString:@"iconTransparency"]) {
-        // 透明度显示为百分比
         self.valueField.text = [NSString stringWithFormat:@"%.0f%%", self.currentValue * 100];
     } else {
-        // 静止时间显示为秒
         self.valueField.text = [NSString stringWithFormat:@"%.0fs", self.currentValue];
     }
 }
@@ -101,9 +100,7 @@
     notify_post("com.yourname.icontransparency/prefsChanged");
 }
 
-// ============ 点击数值编辑 ============
 - (BOOL)textFieldShouldBeginEditing:(UITextField *)textField {
-    // 去掉 % 和 s 后缀，只保留数字
     NSString *text = textField.text;
     text = [text stringByReplacingOccurrencesOfString:@"%" withString:@""];
     text = [text stringByReplacingOccurrencesOfString:@"s" withString:@""];
@@ -124,7 +121,6 @@
 - (void)commitValueFromField {
     double entered = [self.valueField.text doubleValue];
     if ([self.prefsKey isEqualToString:@"iconTransparency"]) {
-        // 输入的是百分比
         entered = entered / 100.0;
     }
     if (entered < self.minValue) entered = self.minValue;
