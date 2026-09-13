@@ -185,6 +185,23 @@ static void prefsChangedCallback(CFNotificationCenterRef center, void *observer,
 }
 %end
 
+// ============ 文件夹关闭后重新应用透明度 ============
+%hook SBFolderController
+- (void)folderDidClose {
+    %orig;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        IconTransparencyManager *mgr = [IconTransparencyManager sharedInstance];
+        if (![mgr isEnabled]) return;
+        if (!mgr.isTransparent) return;
+        // 重新应用当前透明度
+        double alpha = [mgr configuredAlpha];
+        Class iconClass = objc_getClass("SBIconView");
+        if (!iconClass) return;
+        [mgr traverseAllWindows:iconClass alpha:alpha animated:NO];
+    });
+}
+%end
+
 %hook SpringBoard
 - (void)applicationDidFinishLaunching:(id)application {
     %orig;
