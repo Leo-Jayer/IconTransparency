@@ -27,23 +27,20 @@ jobs:
       - name: Setup roothide package format
         run: |
           export THEOS=$HOME/theos
-          echo "=== vendor/mod/roothide ==="
-          ls -la $THEOS/vendor/mod/roothide/
-          echo "=== 查找 roothide.mk ==="
-          find $THEOS/vendor -name "roothide.mk" 2>/dev/null
-          find $THEOS/vendor/mod/roothide -type f 2>/dev/null
 
-          # 如果 vendor/mod/roothide 里有 roothide.mk，复制到 makefiles/package/
-          if [ -f $THEOS/vendor/mod/roothide/roothide.mk ]; then
-            cp $THEOS/vendor/mod/roothide/roothide.mk $THEOS/makefiles/package/roothide.mk
-            echo "已复制 roothide.mk"
-          else
-            echo "vendor/mod/roothide/roothide.mk 不存在，尝试其他位置"
-            # 尝试在 vendor 里找
-            find $THEOS/vendor -name "*.mk" -path "*roothide*" -exec cp {} $THEOS/makefiles/package/roothide.mk \;
-          fi
+          # 删掉之前错误的 roothide.mk
+          rm -f $THEOS/makefiles/package/roothide.mk
 
-          echo "=== makefiles/package/ 现在的内容 ==="
+          # 复制正确的 roothide 打包规则
+          cp $THEOS/vendor/mod/roothide/package/deb.mk $THEOS/makefiles/package/roothide.mk
+
+          echo "=== roothide.mk 前 30 行 ==="
+          head -30 $THEOS/makefiles/package/roothide.mk
+
+          # 覆盖 instance 规则，让 roothide 生效
+          cp $THEOS/vendor/mod/roothide/instance/*.mk $THEOS/makefiles/instance/ 2>/dev/null || true
+
+          echo "=== makefiles/package/ ==="
           ls -la $THEOS/makefiles/package/
 
       - name: Download iOS 16.2 SDK
